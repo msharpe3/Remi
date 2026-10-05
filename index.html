@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Remi</title>
+  <meta name="description" content="Cook with what you have.">
+  <meta name="theme-color" content="#EAF0DF" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121C16" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Remi">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <div id="app">
+    <main id="view" tabindex="-1"></main>
+
+    <nav class="tabs" aria-label="Sections">
+      <a href="#/cook" data-tab="cook">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11h16a8 8 0 0 1-16 0Z"/><path d="M2 11h20M12 3v4M8.5 4.5 9.5 7M15.5 4.5 14.5 7"/></svg>
+        <span>Cook</span>
+      </a>
+      <a href="#/find" data-tab="find">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>
+        <span>Find</span>
+      </a>
+      <a href="#/saved" data-tab="saved">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4.5L6 21Z"/></svg>
+        <span>Saved</span>
+      </a>
+      <a href="#/more" data-tab="more">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+        <span>Kitchen</span>
+      </a>
+    </nav>
+
+    <section id="recipe" class="sheet" hidden aria-modal="true" role="dialog" aria-label="Recipe"></section>
+    <section id="cook" class="cookmode" hidden aria-modal="true" role="dialog" aria-label="Cooking mode"></section>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

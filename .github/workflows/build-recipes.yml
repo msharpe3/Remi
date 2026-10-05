@@ -1,0 +1,46 @@
+name: Build recipes
+
+# Downloads recipes from Wikibooks, USDA MyPlate Kitchen and Public Domain
+# Recipes, packages them for the app, and commits the result to data/.
+# Run it from the Actions tab ("Run workflow"). It also refreshes once a month.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 9 1 * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-recipes
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Get Public Domain Recipes
+        run: git clone --depth 1 https://github.com/ronaldl29/public-domain-recipes.git /tmp/pdr
+
+      - name: Build recipe data
+        run: node scripts/build-data.mjs --pdr-dir=/tmp/pdr
+
+      - name: Commit updated recipes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          if git diff --cached --quiet; then
+            echo "Recipes unchanged."
+          else
+            git commit -m "Update recipe data"
+            git push
+          fi
