@@ -28,3 +28,7 @@ Recipe text in `data/` stays under its source's license (Wikibooks recipes remai
 - `scripts/build-data.mjs` — downloads and packages the recipes
 - `.github/workflows/build-recipes.yml` — runs the builder
 - `sw.js` — offline support
+
+## Releasing an update
+
+Bump `APP_VERSION` in `js/app.js` and the `v` in `version.json` to the same new value (format `YYYY.MM.DD.N`). Remi checks `version.json` when it opens and whenever you return to it, and shows an **Update** button when the live version is newer.

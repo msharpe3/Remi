@@ -2,6 +2,11 @@ import { normalizeIngredient, pantryCovers, isDisliked } from './normalize.js';
 import * as mealdb from './mealdb.js';
 import { createPlanner } from './plan.js';
 
+/* Bump APP_VERSION and version.json together on every release. Remi checks
+   version.json (skipping the cache) when it opens and whenever you come back
+   to it, and offers an Update button when a newer version is live. */
+const APP_VERSION = '2026.10.06.1';
+
 // ---------- storage ----------
 
 const store = {
@@ -645,6 +650,13 @@ function renderMore() {
       </ul>
     </div>
 
+    <h2 class="section">Updates</h2>
+    <div class="panel">
+      <p>Version ${APP_VERSION}</p>
+      <button class="btn quiet" type="button" id="check-update">Check for updates</button>
+      <p class="muted" id="update-status" aria-live="polite"></p>
+    </div>
+
     <h2 class="section">Reset</h2>
     <div class="panel">
       <p class="muted">These only affect this phone.</p>
@@ -696,6 +708,13 @@ function renderMore() {
   paintNope();
 
   $('#reset-staples').onclick = () => { state.staples = [...DEFAULT_STAPLES]; saveState(); paintStaples(); planner.refreshCosts(); };
+  $('#check-update').onclick = async () => {
+    const status = $('#update-status');
+    status.textContent = 'Checking…';
+    const v = await checkForUpdate();
+    status.textContent = v === null ? "Couldn't check right now. Try again when you have signal."
+      : v ? `Version ${v} is ready. Tap Update below.` : "You're on the latest version.";
+  };
   $('#clear-saved').onclick = () => {
     if (!Object.keys(state.saved).length) return;
     if (confirm('Remove all saved recipes from this phone?')) { state.saved = {}; saveState(); }
@@ -954,6 +973,44 @@ loadIndex().then(() => {
   if (location.hash.startsWith('#/r/')) { renderedTab = tab; TABS[tab]?.(); }
   else showTab(tab || 'cook');
 });
+
+// ---------- updates ----------
+
+// Returns the newer version (and shows the Update bar), false if up to date, null if offline.
+async function checkForUpdate() {
+  try {
+    const res = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+    const { v } = await res.json();
+    if (!v || v === APP_VERSION) return false;
+    showUpdateBar(v);
+    return v;
+  } catch { return null; }
+}
+
+function showUpdateBar(v) {
+  if (document.getElementById('upd-bar')) return;
+  const bar = document.createElement('div');
+  bar.id = 'upd-bar';
+  bar.setAttribute('role', 'status');
+  bar.innerHTML = `<span class="upd-mascot" aria-hidden="true"></span><span class="upd-text">A new version of Remi is ready</span>
+    <button class="btn small" type="button" id="upd-go">Update</button>`;
+  document.body.appendChild(bar);
+  document.getElementById('upd-go').onclick = async (e) => {
+    e.currentTarget.disabled = true;
+    e.currentTarget.textContent = 'Updating…';
+    try {
+      // Drop the old app files so the reload can only get the new ones.
+      const reg = await navigator.serviceWorker?.getRegistration();
+      await reg?.update();
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((k) => k.startsWith('remi-v')).map((k) => caches.delete(k)));
+    } catch { /* reload anyway */ }
+    location.replace(`${location.pathname}?v=${encodeURIComponent(v)}${location.hash}`);
+  };
+}
+
+checkForUpdate();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));

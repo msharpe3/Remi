@@ -479,6 +479,27 @@ select.pill.on { background-color: var(--ink); color: var(--bg); border-color: v
 .list-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 20px; padding-top: 12px; border-top: 2px solid var(--ink); font-size: 17px; }
 .list-total b { font: 800 26px/1 var(--display); }
 
+/* ---------- update bar ---------- */
+
+#upd-bar {
+  position: fixed; z-index: 15;
+  left: 12px; right: 12px; bottom: calc(var(--tabs-h) + var(--safe-b) + 10px);
+  max-width: 616px; margin: 0 auto;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 8px 8px 12px; border-radius: 18px;
+  background: var(--ink); color: var(--bg);
+  box-shadow: 0 12px 28px -12px rgb(20 40 25 / 0.55);
+  animation: upd-in 280ms cubic-bezier(.2,.8,.2,1);
+}
+@keyframes upd-in { from { transform: translateY(16px); opacity: 0; } }
+.upd-text { flex: 1; font-weight: 700; font-size: 15px; line-height: 1.25; }
+.upd-mascot {
+  flex: none; width: 22px; height: 38px; background: var(--bg);
+  -webkit-mask: url(../icons/mascot.svg) center / contain no-repeat;
+  mask: url(../icons/mascot.svg) center / contain no-repeat;
+}
+#upd-bar .btn { height: 40px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
