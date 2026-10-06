@@ -42,6 +42,8 @@ const state = {
   staples: store.get('staples', DEFAULT_STAPLES),
   saved: store.get('saved', {}),
   filters: store.get('filters', { course: '', veg: false, vegan: false, quick: false, protein: false }),
+  // Foods you're not a fan of; earlier versions kept this in the plan settings.
+  avoid: store.get('avoid', null) ?? (store.get('plan:profile', null)?.avoid || []),
   shown: PAGE,
   chunks: new Map(),
   tm: new Map(),
@@ -78,6 +80,7 @@ function saveState() {
   store.set('staples', state.staples);
   store.set('saved', state.saved);
   store.set('filters', state.filters);
+  store.set('avoid', state.avoid);
 }
 
 // ---------- data ----------
@@ -172,7 +175,8 @@ function passesFiltersTm(r) {
 }
 
 // Foods you're "not a fan" of (set in Plan) are hidden here too.
-const avoidList = () => store.get('plan:profile', null)?.avoid || [];
+const avoidList = () => state.avoid;
+const NOPE_IDEAS = ['mushroom', 'olive', 'cilantro', 'eggplant', 'greek yogurt', 'tuna', 'shrimp', 'beet', 'coconut', 'blue cheese'];
 let dislikeCache = { key: null, mask: null };
 function rowDisliked(row) {
   const avoid = avoidList();
@@ -619,6 +623,13 @@ function renderMore() {
       <div class="chips" id="staple-chips"></div>
     </div>
 
+    <h2 class="section">Not a fan</h2>
+    <div class="panel" id="nope">
+      <p class="muted">Remi keeps these off your plate everywhere: Cook, Find and your weekly plan. Oils don't count, so “olive” still allows olive oil.</p>
+      ${addRowHtml('nope-input', 'Add a food you\'re not a fan of', 'Add')}
+      <div class="chips" id="nope-chips" aria-live="polite"></div>
+    </div>
+
     <h2 class="section">Recipe library</h2>
     <div class="panel">
       ${idx
@@ -658,6 +669,32 @@ function renderMore() {
     paintStaples();
     planner.refreshCosts();
   };
+  const paintNope = () => {
+    const ideas = NOPE_IDEAS.filter((n) => !state.avoid.includes(n)).slice(0, 6);
+    $('#nope-chips').innerHTML = state.avoid.map((n) =>
+      `<span class="chip nope"><s>${esc(n)}</s><button class="x" type="button" data-unnope="${esc(n)}" aria-label="Remove ${esc(n)}">×</button></span>`).join('')
+      + ideas.map((n) => `<button class="chip add" type="button" data-nope="${esc(n)}">+ ${esc(n)}</button>`).join('');
+  };
+  bindAddRow($('#nope'), {
+    list: () => state.avoid,
+    placeholder: 'mushrooms, olives…',
+    onAdd: (raw) => {
+      for (const part of raw.split(/,| and /)) if (part.trim()) addToList(state.avoid, part);
+      saveState();
+      paintNope();
+    },
+  });
+  $('#nope-chips').onclick = (e) => {
+    const un = e.target.closest('[data-unnope]');
+    const add = e.target.closest('[data-nope]');
+    if (un) state.avoid = state.avoid.filter((n) => n !== un.dataset.unnope);
+    else if (add) addToList(state.avoid, add.dataset.nope);
+    else return;
+    saveState();
+    paintNope();
+  };
+  paintNope();
+
   $('#reset-staples').onclick = () => { state.staples = [...DEFAULT_STAPLES]; saveState(); paintStaples(); planner.refreshCosts(); };
   $('#clear-saved').onclick = () => {
     if (!Object.keys(state.saved).length) return;
@@ -863,8 +900,7 @@ cookEl.addEventListener('touchend', (e) => {
 const planner = createPlanner({
   store, esc, fmt, view,
   coverOf: (name) => (state.staples.includes(name) ? 1 : 0),
-  suggest: suggestionsFor,
-  normalize: (raw) => normalizeIngredient(raw) || raw.trim().toLowerCase(),
+  getAvoid: () => state.avoid,
 });
 
 const TABS = { cook: renderCook, find: renderFind, plan: () => planner.render(), saved: renderSaved, more: renderMore };
