@@ -3,7 +3,7 @@
 // Recipe library index: network first, cached copy when offline.
 // Recipe files, fonts and photos: cached after the first view.
 
-const VERSION = 'remi-v2';
+const VERSION = 'remi-v3';
 const SHELL = [
   './',
   'index.html',
@@ -11,6 +11,9 @@ const SHELL = [
   'js/app.js',
   'js/normalize.js',
   'js/mealdb.js',
+  'js/plan.js',
+  'js/prices.js',
+  'js/quantity.js',
   'manifest.webmanifest',
   'icons/icon.svg',
   'icons/mascot.svg',
@@ -75,7 +78,7 @@ self.addEventListener('fetch', (event) => {
   if (req.mode === 'navigate') return event.respondWith(networkFirst(req, VERSION));
 
   if (url.origin === self.location.origin) {
-    if (url.pathname.endsWith('/data/index.json')) return event.respondWith(networkFirst(req, 'remi-data'));
+    if (url.pathname.endsWith('/data/index.json') || url.pathname.endsWith('/data/plan.json')) return event.respondWith(networkFirst(req, 'remi-data'));
     if (url.pathname.includes('/data/r/')) return event.respondWith(cacheFirst(req, 'remi-data'));
     return event.respondWith(staleWhileRevalidate(req));
   }

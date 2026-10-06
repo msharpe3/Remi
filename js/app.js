@@ -1,5 +1,6 @@
 import { normalizeIngredient, pantryCovers } from './normalize.js';
 import * as mealdb from './mealdb.js';
+import { createPlanner } from './plan.js';
 
 // ---------- storage ----------
 
@@ -621,7 +622,7 @@ function renderMore() {
   bindAddRow($('#staples'), {
     list: () => state.staples,
     placeholder: 'butter, flour, garlic…',
-    onAdd: (raw) => { addToList(state.staples, raw); saveState(); paintStaples(); },
+    onAdd: (raw) => { addToList(state.staples, raw); saveState(); paintStaples(); planner.refreshCosts(); },
   });
   $('#staple-chips').onclick = (e) => {
     const rm = e.target.closest('[data-remove]');
@@ -629,8 +630,9 @@ function renderMore() {
     state.staples = state.staples.filter((p) => p !== rm.dataset.remove);
     saveState();
     paintStaples();
+    planner.refreshCosts();
   };
-  $('#reset-staples').onclick = () => { state.staples = [...DEFAULT_STAPLES]; saveState(); paintStaples(); };
+  $('#reset-staples').onclick = () => { state.staples = [...DEFAULT_STAPLES]; saveState(); paintStaples(); planner.refreshCosts(); };
   $('#clear-saved').onclick = () => {
     if (!Object.keys(state.saved).length) return;
     if (confirm('Remove all saved recipes from this phone?')) { state.saved = {}; saveState(); }
@@ -830,7 +832,11 @@ cookEl.addEventListener('touchend', (e) => {
 
 // ---------- routing ----------
 
-const TABS = { cook: renderCook, find: renderFind, saved: renderSaved, more: renderMore };
+// The planner only treats your Kitchen staples as already bought; what you typed
+// into Cook tonight isn't assumed to last a whole week.
+const planner = createPlanner({ store, esc, fmt, view, coverOf: (name) => (state.staples.includes(name) ? 1 : 0) });
+
+const TABS = { cook: renderCook, find: renderFind, plan: () => planner.render(), saved: renderSaved, more: renderMore };
 let renderedTab = null;
 
 function route() {

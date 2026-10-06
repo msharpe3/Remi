@@ -115,9 +115,17 @@ export function normalizeIngredient(raw) {
   let s = String(raw).toLowerCase();
   s = s.replace(/half[- ]and[- ]half/g, 'half-and-half');
   s = s.replace(/\([^)]*\)/g, ' ').replace(/\[[^\]]*\]/g, ' ');
-  // Drop "or ..." alternatives and anything after the first comma or semicolon.
-  s = s.split(/[,;:]| - | – | — /)[0];
-  s = s.replace(/\bor\b.*$/, ' ');
+  // Usually the name comes before the first comma ("onion, chopped"), but
+  // sometimes a comma splits the adjectives ("8 bone-in, skin-on chicken
+  // thighs"), so use the first part that still names something.
+  for (const part of s.split(/[,;:]| - | – | — /)) {
+    const name = nameFrom(part.replace(/\bor\b.*$/, ' '));
+    if (name) return name;
+  }
+  return '';
+}
+
+function nameFrom(s) {
   s = s.replace(UNICODE_FRACTIONS, ' ');
   s = s.replace(/\d+([\/.,-]\d+)*(%)?/g, (m) => (m.endsWith('%') ? m : ' '));
   s = s.replace(/[^a-z%'\s-]/g, ' ');
@@ -146,12 +154,14 @@ export function pantryCovers(term, ingredient) {
   return term.split(' ').every((w) => have.includes(w));
 }
 
-const MEAT_WORDS = /\b(beef|steak|pork|bacon|ham|sausage|chicken|turkey|duck|lamb|veal|venison|bison|goat|rabbit|chorizo|pepperoni|salami|prosciutto|pancetta|meat|fish|salmon|tuna|cod|tilapia|trout|halibut|sardine|anchov|shrimp|prawn|crab|lobster|clam|mussel|oyster|scallop|squid|octopus|gelatin|lard|broth|stock|bouillon|worcestershire)\b/;
+const MEAT_WORDS = /\b(beef|steak|pork|bacon|ham|sausage|chicken|turkey|duck|lamb|veal|venison|bison|goat|rabbit|chorizo|pepperoni|salami|prosciutto|pancetta|meat|meatballs?|\w*fish|salmon|tuna|cod|tilapia|trout|halibut|haddock|pollock|flounder|sole|snapper|mahi|sardines?|anchov\w*|shrimp|prawns?|crab|lobster|clams?|mussels?|oysters?|scallops?|squid|calamari|octopus|gelatin|lard|broth|stock|bouillon|worcestershire|jerky|hot ?dogs?|burgers?)\b/;
 const ANIMAL_WORDS = /\b(milk|butter|cheese|cream|yogurt|yoghurt|egg|honey|ghee|buttermilk|mayonnaise|whey|custard)\b/;
 const PLANT_OK = /\b(vegetable broth|vegetable stock|almond milk|soy milk|oat milk|coconut milk|rice milk|peanut butter|almond butter|cocoa butter|coconut cream|vegan|cashew cream|nut butter|apple butter|butternut|butter bean|eggplant)\b/;
 
-export function dietTags(ingredientNames) {
-  const meaty = ingredientNames.some((n) => MEAT_WORDS.test(n) && !PLANT_OK.test(n));
+export function dietTags(ingredientNames, title = '') {
+  const t = String(title).toLowerCase();
+  const meatyTitle = MEAT_WORDS.test(t) && !PLANT_OK.test(t) && !/\b(veggie|vegan|vegetarian|meatless|mock|tofu)\b/.test(t);
+  const meaty = meatyTitle || ingredientNames.some((n) => MEAT_WORDS.test(n) && !PLANT_OK.test(n));
   const animal = ingredientNames.some((n) => ANIMAL_WORDS.test(n) && !PLANT_OK.test(n));
   return { vegetarian: !meaty, vegan: !meaty && !animal };
 }

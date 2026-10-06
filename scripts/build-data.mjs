@@ -11,13 +11,17 @@
 // If a source fails or comes back empty, the recipes it produced last time are
 // kept, so one flaky site never wipes out part of your library.
 //
+//   data/plan.json   – recipes with nutrition, amounts parsed, for the meal planner
+//
 // Usage: node scripts/build-data.mjs [--only=w,m,p] [--pdr-dir=path] [--limit=N]
+//        node scripts/build-data.mjs --plan-only   (rebuild plan.json from the current data)
 
 import { readFile, writeFile, mkdir, readdir, rm, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { normalizeIngredient, dietTags } from '../js/normalize.js';
+import { parseQuantity } from '../js/quantity.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = path.join(ROOT, 'data');
@@ -609,6 +613,59 @@ function compactImage(url) {
   return url;
 }
 
+// ---------- meal planner data ----------
+
+const PLAN_COURSES = new Set(['b', 'm', 'u', 'l', 'i', 'n']);
+function servingsOf(s) {
+  const m = String(s || '').match(/\d+/);
+  const n = m ? Number(m[0]) : 0;
+  return n >= 1 && n <= 24 ? n : 0;
+}
+
+function planData(recipes) {
+  const out = [];
+  for (const r of recipes) {
+    if (!r.nut || r.nut.kcal == null || r.nut.kcal < 20 || !PLAN_COURSES.has(r.course)) continue;
+    const s = servingsOf(r.serv);
+    if (!s) continue;
+    const ing = [];
+    for (const line of r.ing) {
+      const n = normalizeIngredient(line);
+      if (!n) continue;
+      const { q, u, size } = parseQuantity(line);
+      ing.push(size ? [n, q, u, size.q, size.u] : q != null ? [n, q, u] : [n]);
+    }
+    if (ing.length < 2) continue;
+    out.push({
+      id: r.id, t: r.t, c: r.course, s,
+      k: r.nut.kcal, p: r.nut.protein ?? 0, cb: r.nut.carbs ?? null, f: r.nut.fat ?? null,
+      v: (r.diet.vegetarian ? 1 : 0) | (r.diet.vegan ? 2 : 0),
+      ing,
+    });
+  }
+  return out;
+}
+
+async function writePlan(recipes) {
+  const plan = planData(recipes);
+  await writeFile(path.join(DATA, 'plan.json'), JSON.stringify({ version: 1, builtAt: new Date().toISOString(), recipes: plan }));
+  const size = (await stat(path.join(DATA, 'plan.json'))).size;
+  log(`plan.json ${(size / 1024).toFixed(0)} KB, ${plan.length} recipes with nutrition`);
+}
+
+async function planOnly() {
+  const idx = JSON.parse(await readFile(path.join(DATA, 'index.json'), 'utf8'));
+  const rows = new Map(idx.recipes.map((r) => [r[0], r]));
+  const recipes = [];
+  for (let c = 0; c < idx.chunks; c++) {
+    for (const r of JSON.parse(await readFile(path.join(DATA, 'r', `${c}.json`), 'utf8'))) {
+      const row = rows.get(r.id);
+      if (row) recipes.push({ ...r, course: row[9], diet: dietTags([...new Set(r.ing.map(normalizeIngredient).filter(Boolean))], r.t) });
+    }
+  }
+  await writePlan(recipes);
+}
+
 // ---------- assemble ----------
 
 function finalize(all) {
@@ -629,7 +686,7 @@ function finalize(all) {
     ids.add(id);
     const names = [...new Set(r.ing.map(normalizeIngredient).filter(Boolean))];
     if (names.length < 2) continue;
-    const diet = dietTags(names);
+    const diet = dietTags(names, r.t);
     recipes.push({ ...r, id, names, diet, course: courseOf(r.cat, r.kw, r.t) });
   }
   recipes.sort((a, b) => a.t.localeCompare(b.t));
@@ -705,13 +762,14 @@ async function main() {
     recipes: rows,
   };
   await writeFile(path.join(DATA, 'index.json'), JSON.stringify(index));
+  await writePlan(recipes);
   const size = (await stat(path.join(DATA, 'index.json'))).size;
   log(`\nDone: ${recipes.length} recipes (${Object.entries(finalCounts).map(([k, v]) => `${SOURCES[k].name} ${v}`).join(', ')})`);
   log(`index.json ${(size / 1024).toFixed(0)} KB, ${chunks.length} recipe files, ${vocab.length} ingredients`);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().catch((err) => { console.error(err); process.exit(1); });
+  (args['plan-only'] ? planOnly() : main()).catch((err) => { console.error(err); process.exit(1); });
 }
 
 export { parseWikibooksPage, extractJsonLdRecipe, recipeFromJsonLd, parseFrontMatter, mdSection, courseOf };
