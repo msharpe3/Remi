@@ -1,4 +1,4 @@
-import { normalizeIngredient, pantryCovers } from './normalize.js';
+import { normalizeIngredient, pantryCovers, isDisliked } from './normalize.js';
 import * as mealdb from './mealdb.js';
 import { createPlanner } from './plan.js';
 
@@ -171,10 +171,28 @@ function passesFiltersTm(r) {
   return true;
 }
 
+// Foods you're "not a fan" of (set in Plan) are hidden here too.
+const avoidList = () => store.get('plan:profile', null)?.avoid || [];
+let dislikeCache = { key: null, mask: null };
+function rowDisliked(row) {
+  const avoid = avoidList();
+  if (!avoid.length) return false;
+  const key = `${avoid.join('|')}#${state.vocab.length}`;
+  if (dislikeCache.key !== key) {
+    const mask = new Uint8Array(state.vocab.length);
+    state.vocab.forEach((name, i) => { if (isDisliked(avoid, [name])) mask[i] = 1; });
+    dislikeCache = { key, mask };
+  }
+  return row[4].some((i) => dislikeCache.mask[i]) || isDisliked(avoid, [], row[1]);
+}
+const tmDisliked = (r) => isDisliked(avoidList(), r.names || [], r.t);
+const hiddenNote = (n) => (n ? ` <span class="nope-note">Hiding ${fmt(n)} with foods you're not a fan of.</span>` : '');
+
 function rankLocal() {
   if (!state.index || !state.pantry.length) return [];
   const cov = coverage();
   const out = [];
+  let hidden = 0;
   for (const row of state.index.recipes) {
     if (!passesFilters(row)) continue;
     let have = 0;
@@ -183,9 +201,12 @@ function rankLocal() {
       const c = cov[i];
       if (c) { have++; if (c === 2) usesPantry = true; }
     }
-    if (usesPantry) out.push({ row, have, miss: row[4].length - have });
+    if (!usesPantry) continue;
+    if (rowDisliked(row)) { hidden++; continue; }
+    out.push({ row, have, miss: row[4].length - have });
   }
   out.sort((a, b) => a.miss - b.miss || b.have - a.have || (b.row[8] & 4) - (a.row[8] & 4) || a.row[1].localeCompare(b.row[1]));
+  out.hidden = hidden;
   return out;
 }
 
@@ -445,12 +466,12 @@ function renderCookResults() {
   const ranked = rankLocal();
   if (!ranked.length) {
     box.innerHTML = `<div class="empty"><h3>No matches yet</h3>
-      <p>Try a more general name, like “chicken” instead of “chicken tenders,” or turn off a filter.</p></div>`;
+      <p>Try a more general name, like “chicken” instead of “chicken tenders,” or turn off a filter.${hiddenNote(ranked.hidden)}</p></div>`;
     return;
   }
   const ready = ranked.filter((r) => r.miss === 0).length;
   box.innerHTML = `
-    <p class="result-count">${fmt(ranked.length)} recipes use what you have${ready ? `, and you can make ${fmt(ready)} right now` : ''}.</p>
+    <p class="result-count">${fmt(ranked.length)} recipes use what you have${ready ? `, and you can make ${fmt(ready)} right now` : ''}.${hiddenNote(ranked.hidden)}</p>
     <ul class="list">${ranked.slice(0, state.shown).map((r) => cardFromRow(r.row, true)).join('')}</ul>
     ${ranked.length > state.shown ? '<div class="more-row"><button class="btn quiet wide" id="show-more" type="button">Show more recipes</button></div>' : ''}`;
   const more = $('#show-more');
@@ -482,7 +503,7 @@ async function loadTmForPantry() {
 function renderTm() {
   const box = $('#tm-results');
   if (!box) return;
-  const items = tmItems.filter(passesFiltersTm)
+  const items = tmItems.filter((r) => passesFiltersTm(r) && !tmDisliked(r))
     .map((r) => ({ r, miss: r.names.filter((n) => !coverOf(n)).length }))
     .sort((a, b) => a.miss - b.miss);
   box.innerHTML = items.length
@@ -530,18 +551,23 @@ function updateFind() {
   }
   if (state.index) {
     const rows = [];
+    let hidden = 0;
     const words = q.split(/\s+/).filter(Boolean);
     state.index.recipes.forEach((row, i) => {
       if (!passesFilters(row)) return;
       const title = state.titles[i];
-      if (words.every((w) => title.includes(w))) rows.push({ row, starts: q && title.startsWith(q) ? 0 : 1 });
+      if (!words.every((w) => title.includes(w))) return;
+      if (rowDisliked(row)) { hidden++; return; }
+      rows.push({ row, starts: q && title.startsWith(q) ? 0 : 1 });
     });
     rows.sort((a, b) => a.starts - b.starts || (b.row[8] & 4) - (a.row[8] & 4) || a.row[1].localeCompare(b.row[1]));
     box.innerHTML = rows.length
-      ? `<p class="result-count">${fmt(rows.length)} recipes</p>
+      ? `<p class="result-count">${fmt(rows.length)} recipes.${hiddenNote(hidden)}</p>
          <ul class="list">${rows.slice(0, state.shown).map((r) => cardFromRow(r.row, state.pantry.length > 0)).join('')}</ul>
          ${rows.length > state.shown ? '<div class="more-row"><button class="btn quiet wide" id="show-more" type="button">Show more recipes</button></div>' : ''}`
-      : `<div class="empty"><h3>Nothing called “${esc(state.findQuery.trim())}”</h3><p>Try fewer words, or check the spelling.</p></div>`;
+      : hidden
+        ? `<div class="empty"><h3>All hidden</h3><p>${fmt(hidden)} recipes match, but they use foods you're not a fan of. Change that list in Plan, under Edit goals.</p></div>`
+        : `<div class="empty"><h3>Nothing called “${esc(state.findQuery.trim())}”</h3><p>Try fewer words, or check the spelling.</p></div>`;
     const more = $('#show-more');
     if (more) more.onclick = () => { state.shown += PAGE; updateFind(); };
   } else {
@@ -554,7 +580,7 @@ function updateFind() {
   mealdb.byName(q).then((items) => {
     if (token !== findTmToken) return;
     items.forEach((r) => state.tm.set(r.id, r));
-    const shown = items.filter(passesFiltersTm);
+    const shown = items.filter((r) => passesFiltersTm(r) && !tmDisliked(r));
     tmBox.innerHTML = shown.length
       ? `<h2 class="section">From TheMealDB</h2><ul class="list">${shown.map((r) => cardFromTm(r, state.pantry.length > 0)).join('')}</ul>`
       : '';

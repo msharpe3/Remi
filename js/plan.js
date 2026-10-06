@@ -4,7 +4,7 @@
 // share ingredients, and keeps the estimated total under your budget.
 
 import { STORES, AISLES, priceEntry, guessAisle } from './prices.js';
-import { pantryCovers } from './normalize.js';
+import { isDisliked } from './normalize.js';
 
 const GOALS = {
   lose: { label: 'Lose fat', kcal: 0.8, protein: 1.0 },
@@ -29,15 +29,7 @@ const DEFAULT_PROFILE = {
 };
 const NOPE_IDEAS = ['mushroom', 'olive', 'cilantro', 'eggplant', 'greek yogurt', 'tuna', 'shrimp', 'beet', 'coconut', 'blue cheese'];
 
-// Does a recipe use something you're not a fan of? Oils don't count
-// ("olive" shouldn't rule out everything cooked in olive oil).
-function usesDisliked(r, avoid) {
-  if (!avoid?.length) return false;
-  const title = r.t.toLowerCase();
-  return avoid.some((a) =>
-    r.ing.some(([name]) => pantryCovers(a, name) && !(name.endsWith(' oil') && !a.endsWith(' oil')))
-    || new RegExp(`\\b${a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}s?\\b(?!\\s+oil)`).test(title));
-}
+const usesDisliked = (r, avoid) => isDisliked(avoid, r.ing.map((i) => i[0]), r.t);
 
 export function suggestTargets(p) {
   const kg = p.weightLb * 0.4536;

@@ -165,3 +165,14 @@ export function dietTags(ingredientNames, title = '') {
   const animal = ingredientNames.some((n) => ANIMAL_WORDS.test(n) && !PLANT_OK.test(n));
   return { vegetarian: !meaty, vegan: !meaty && !animal };
 }
+
+// Is this recipe made with something you're "not a fan" of? Checks the
+// ingredient names and the title. Oils don't count, so "olive" doesn't rule
+// out everything cooked in olive oil.
+export function isDisliked(avoid, names, title = '') {
+  if (!avoid || !avoid.length) return false;
+  const t = String(title).toLowerCase();
+  return avoid.some((a) =>
+    names.some((name) => pantryCovers(a, name) && !(name.endsWith(' oil') && !a.endsWith(' oil')))
+    || new RegExp(`\\b${a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}s?\\b(?!\\s+oil)`).test(t));
+}

@@ -402,6 +402,7 @@ select.pill.on { background-color: var(--ink); color: var(--bg); border-color: v
 .chip.nope s { text-decoration-thickness: 2px; }
 .chip.nope .x { color: var(--tomato); }
 .nope-line s { color: var(--tomato); text-decoration-thickness: 2px; }
+.nope-note { color: var(--tomato); }
 
 .plan-form { display: grid; gap: 14px; }
 .plan-form fieldset { margin: 0; min-width: 0; }
