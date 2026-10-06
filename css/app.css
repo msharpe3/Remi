@@ -393,6 +393,16 @@ select.pill.on { background-color: var(--ink); color: var(--bg); border-color: v
 
 /* ---------- plan ---------- */
 
+/* Not a fan: crossed-out ingredients, tomato like the "need" tags */
+.nope-add { margin-top: 4px; }
+.chip.nope {
+  background: color-mix(in srgb, var(--tomato) 13%, var(--surface));
+  color: var(--tomato);
+}
+.chip.nope s { text-decoration-thickness: 2px; }
+.chip.nope .x { color: var(--tomato); }
+.nope-line s { color: var(--tomato); text-decoration-thickness: 2px; }
+
 .plan-form { display: grid; gap: 14px; }
 .plan-form fieldset { margin: 0; min-width: 0; }
 .plan-form legend { font: 700 19px/1.2 var(--display); padding: 0; margin-bottom: 10px; float: left; width: 100%; }

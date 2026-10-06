@@ -4,6 +4,7 @@
 // share ingredients, and keeps the estimated total under your budget.
 
 import { STORES, AISLES, priceEntry, guessAisle } from './prices.js';
+import { pantryCovers } from './normalize.js';
 
 const GOALS = {
   lose: { label: 'Lose fat', kcal: 0.8, protein: 1.0 },
@@ -24,8 +25,19 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 
 const DEFAULT_PROFILE = {
   goal: 'recomp', sex: 'male', age: 20, heightIn: 70, weightLb: 175, activity: 'moderate',
-  diet: 'any', store: 'aldi', budget: 100, shake: false, kcal: null, protein: null,
+  diet: 'any', store: 'aldi', budget: 100, shake: false, kcal: null, protein: null, avoid: [],
 };
+const NOPE_IDEAS = ['mushroom', 'olive', 'cilantro', 'eggplant', 'greek yogurt', 'tuna', 'shrimp', 'beet', 'coconut', 'blue cheese'];
+
+// Does a recipe use something you're not a fan of? Oils don't count
+// ("olive" shouldn't rule out everything cooked in olive oil).
+function usesDisliked(r, avoid) {
+  if (!avoid?.length) return false;
+  const title = r.t.toLowerCase();
+  return avoid.some((a) =>
+    r.ing.some(([name]) => pantryCovers(a, name) && !(name.endsWith(' oil') && !a.endsWith(' oil')))
+    || new RegExp(`\\b${a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}s?\\b(?!\\s+oil)`).test(title));
+}
 
 export function suggestTargets(p) {
   const kg = p.weightLb * 0.4536;
@@ -47,7 +59,7 @@ const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 const money = (n) => `$${n.toFixed(2)}`;
 
 export function createPlanner(ctx) {
-  const { store, esc, fmt, coverOf, view } = ctx;
+  const { store, esc, fmt, coverOf, view, suggest, normalize } = ctx;
   let data = null;
   let byId = new Map();
   let loadError = false;
@@ -192,7 +204,7 @@ export function createPlanner(ctx) {
   function pools() {
     const ok = (r) => (profile.diet === 'vegan' ? r.v & 2 : profile.diet === 'vegetarian' ? r.v & 1 : true);
     const notMeal = /\b(dressing|vinaigrette|sauce|dip|marinade|seasoning|rub|spread|topping|syrup|glaze|stock|broth)\b/i;
-    const all = data.filter((r) => ok(r) && !notMeal.test(r.t));
+    const all = data.filter((r) => ok(r) && !notMeal.test(r.t) && !usesDisliked(r, profile.avoid));
     const treat = /\b(milk|mix|treats?|balls?|bites?|cookies?|bars?|candy|shakes?|smoothies?|bread|bagels?|muffins?|popcorn|cake|pie|pudding|jam|jelly|preserves?|bouquet|snack)\b/i;
     const t = targets();
     const minProtein = (t.protein * 4) / t.kcal > 0.25 ? 10 : 6;
@@ -428,6 +440,19 @@ export function createPlanner(ctx) {
           <label class="field"><span>Diet</span><select name="diet">${opt('any', p.diet, 'No restrictions')}${opt('vegetarian', p.diet, 'Vegetarian')}${opt('vegan', p.diet, 'Vegan')}</select></label>
         </fieldset>
 
+        <fieldset class="panel nope-panel">
+          <legend>Not a fan</legend>
+          <p class="muted">Remi keeps these off your plate. Any recipe that uses them is skipped.</p>
+          <div class="add-row nope-add">
+            <label for="nope-input" class="visually-hidden">Add a food you're not a fan of</label>
+            <input id="nope-input" type="text" enterkeyhint="done" autocapitalize="none" autocorrect="off" spellcheck="false"
+              placeholder="mushrooms, olives…" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="nope-list">
+            <button class="btn" type="button" id="nope-add">Add</button>
+            <ul class="suggest" id="nope-list" role="listbox" hidden></ul>
+          </div>
+          <div class="chips" id="nope-chips" aria-live="polite"></div>
+        </fieldset>
+
         <fieldset class="panel">
           <legend>Shopping</legend>
           ${seg('store', p.store, Object.entries(STORES).map(([k, st]) => [k, st.name]))}
@@ -454,6 +479,7 @@ export function createPlanner(ctx) {
         store: f.get('store') || 'aldi',
         budget: Math.max(20, Number(f.get('budget')) || 100),
         shake: f.get('shake') === 'on',
+        avoid: [...avoid],
         kcal: Number(f.get('kcal')) || null,
         protein: Number(f.get('protein')) || null,
       };
@@ -471,6 +497,52 @@ export function createPlanner(ctx) {
       note.hidden = !low;
       note.textContent = low ? `Remi won't plan below ${fmt(sg.floor)} calories a day. Very low intakes make it hard to keep muscle and get enough nutrients.` : '';
     };
+    // Not a fan picker
+    const avoid = [...(p.avoid || [])];
+    const nopeInput = $('#nope-input');
+    const nopeList = $('#nope-list');
+    const paintNope = () => {
+      const ideas = NOPE_IDEAS.filter((n) => !avoid.includes(n)).slice(0, 6);
+      $('#nope-chips').innerHTML = avoid.map((n) =>
+        `<span class="chip nope"><s>${esc(n)}</s><button class="x" type="button" data-unnope="${esc(n)}" aria-label="Remove ${esc(n)}">×</button></span>`).join('')
+        + ideas.map((n) => `<button class="chip add" type="button" data-nope="${esc(n)}">+ ${esc(n)}</button>`).join('');
+    };
+    const closeNope = () => { nopeList.hidden = true; nopeList.innerHTML = ''; nopeInput.setAttribute('aria-expanded', 'false'); };
+    const addNope = (raw) => {
+      for (const part of String(raw).split(/,| and /)) {
+        const n = normalize(part);
+        if (n && !avoid.includes(n)) avoid.push(n);
+      }
+      nopeInput.value = '';
+      closeNope();
+      paintNope();
+    };
+    nopeInput.addEventListener('input', () => {
+      const items = suggest(nopeInput.value, avoid);
+      if (!items.length) return closeNope();
+      nopeList.innerHTML = items.map(([name, count]) =>
+        `<li><button type="button" role="option" data-pick="${esc(name)}"><span>${esc(name)}</span><small>${fmt(count)} recipes</small></button></li>`).join('');
+      nopeList.hidden = false;
+      nopeInput.setAttribute('aria-expanded', 'true');
+    });
+    nopeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); if (nopeInput.value.trim()) addNope(nopeInput.value); }
+      if (e.key === 'Escape') closeNope();
+    });
+    nopeInput.addEventListener('blur', () => setTimeout(closeNope, 150));
+    nopeList.addEventListener('pointerdown', (e) => e.preventDefault());
+    nopeList.addEventListener('click', (e) => { const b = e.target.closest('[data-pick]'); if (b) addNope(b.dataset.pick); });
+    $('#nope-add').onclick = () => { if (nopeInput.value.trim()) addNope(nopeInput.value); };
+    $('#nope-chips').onclick = (e) => {
+      const un = e.target.closest('[data-unnope]');
+      const add = e.target.closest('[data-nope]');
+      if (un) avoid.splice(avoid.indexOf(un.dataset.unnope), 1);
+      else if (add) avoid.push(add.dataset.nope);
+      else return;
+      paintNope();
+    };
+    paintNope();
+
     form.addEventListener('input', refresh);
     form.addEventListener('change', refresh);
     form.addEventListener('submit', (e) => {
@@ -519,6 +591,7 @@ export function createPlanner(ctx) {
         <p class="muted">${over
           ? `Over your ${money(profile.budget)} budget by ${money(list.total - profile.budget)}. Try New plan, swap a pricey recipe, or mark things you already have in Kitchen.`
           : `${money(profile.budget - list.total)} under your ${money(profile.budget)} budget.`}</p>
+        ${profile.avoid?.length ? `<p class="muted nope-line">Skipping ${profile.avoid.map((a) => `<s>${esc(a)}</s>`).join(', ')}.</p>` : ''}
         ${proteinShort ? `<p class="muted">These recipes fall about ${Math.round(t.protein - avg.protein)} g short on protein a day.${profile.shake ? '' : ' Turning on the daily protein shake in Edit goals closes part of the gap.'}</p>` : ''}
         <div class="row-btns">
           <button class="btn quiet" type="button" id="new-plan">New plan</button>

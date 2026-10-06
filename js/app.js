@@ -834,7 +834,12 @@ cookEl.addEventListener('touchend', (e) => {
 
 // The planner only treats your Kitchen staples as already bought; what you typed
 // into Cook tonight isn't assumed to last a whole week.
-const planner = createPlanner({ store, esc, fmt, view, coverOf: (name) => (state.staples.includes(name) ? 1 : 0) });
+const planner = createPlanner({
+  store, esc, fmt, view,
+  coverOf: (name) => (state.staples.includes(name) ? 1 : 0),
+  suggest: suggestionsFor,
+  normalize: (raw) => normalizeIngredient(raw) || raw.trim().toLowerCase(),
+});
 
 const TABS = { cook: renderCook, find: renderFind, plan: () => planner.render(), saved: renderSaved, more: renderMore };
 let renderedTab = null;
