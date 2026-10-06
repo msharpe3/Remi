@@ -369,7 +369,10 @@ function addToList(list, raw) {
 function renderCook() {
   view.innerHTML = `
     <header class="page-head">
-      <h1 class="wordmark">remi<span class="dot">.</span></h1>
+      <div class="brand">
+        <h1 class="wordmark">remi<span class="dot">.</span></h1>
+        <span class="mascot" role="img" aria-label="Remi, a mouse in a chef's hat holding a spoon"></span>
+      </div>
       <p class="lede">Tell Remi what's in your kitchen and get recipes you can make right now.</p>
     </header>
     <section class="pantry" aria-label="Your ingredients">

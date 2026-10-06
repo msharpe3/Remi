@@ -96,6 +96,14 @@ a { color: inherit; }
 }
 .wordmark .dot { color: var(--tomato); }
 
+.brand { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.mascot {
+  flex: none; width: 64px; height: 110px; margin-bottom: -4px;
+  background: var(--ink);
+  -webkit-mask: url(../icons/mascot.svg) center / contain no-repeat;
+  mask: url(../icons/mascot.svg) center / contain no-repeat;
+}
+
 .page-title {
   font: 700 34px/1.05 var(--display);
   letter-spacing: -0.02em;
@@ -388,5 +396,6 @@ select.pill.on { background-color: var(--ink); color: var(--bg); border-color: v
 
 @media (min-width: 720px) {
   .wordmark { font-size: 80px; }
+  .mascot { width: 76px; height: 130px; }
   .recipe-body h1 { font-size: 44px; }
 }

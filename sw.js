@@ -3,7 +3,7 @@
 // Recipe library index: network first, cached copy when offline.
 // Recipe files, fonts and photos: cached after the first view.
 
-const VERSION = 'remi-v1';
+const VERSION = 'remi-v2';
 const SHELL = [
   './',
   'index.html',
@@ -13,6 +13,7 @@ const SHELL = [
   'js/mealdb.js',
   'manifest.webmanifest',
   'icons/icon.svg',
+  'icons/mascot.svg',
   'icons/icon-180.png',
   'icons/icon-512.png',
 ];

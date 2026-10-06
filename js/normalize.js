@@ -66,6 +66,7 @@ const ALIASES = {
   'plain flour': 'flour',
   'white flour': 'flour',
   'granulated sugar': 'sugar',
+  'white granulated sugar': 'sugar',
   'white sugar': 'sugar',
   'caster sugar': 'sugar',
   'black pepper': 'black pepper',
