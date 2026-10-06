@@ -1,9 +1,10 @@
 // Remi offline support.
-// App files: served from cache, refreshed in the background.
+// App files: newest from the network when online, cached copy when offline,
+// so the page and its styles never come from two different versions.
 // Recipe library index: network first, cached copy when offline.
 // Recipe files, fonts and photos: cached after the first view.
 
-const VERSION = 'remi-v3';
+const VERSION = 'remi-v4';
 const SHELL = [
   './',
   'index.html',
@@ -63,13 +64,6 @@ async function cacheFirst(req, cacheName, limit) {
   return res;
 }
 
-async function staleWhileRevalidate(req) {
-  const cache = await caches.open(VERSION);
-  const hit = await cache.match(req, { ignoreSearch: true });
-  const fresh = fetch(req).then((res) => { if (res.ok) cache.put(req, res.clone()); return res; }).catch(() => hit);
-  return hit || fresh;
-}
-
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
@@ -80,7 +74,7 @@ self.addEventListener('fetch', (event) => {
   if (url.origin === self.location.origin) {
     if (url.pathname.endsWith('/data/index.json') || url.pathname.endsWith('/data/plan.json')) return event.respondWith(networkFirst(req, 'remi-data'));
     if (url.pathname.includes('/data/r/')) return event.respondWith(cacheFirst(req, 'remi-data'));
-    return event.respondWith(staleWhileRevalidate(req));
+    return event.respondWith(networkFirst(req, VERSION));
   }
 
   if (/fonts\.(googleapis|gstatic)\.com$/.test(url.hostname)) return event.respondWith(cacheFirst(req, 'remi-fonts'));
