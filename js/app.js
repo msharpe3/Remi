@@ -5,7 +5,7 @@ import { createPlanner } from './plan.js';
 /* Bump APP_VERSION and version.json together on every release. Remi checks
    version.json (skipping the cache) when it opens and whenever you come back
    to it, and offers an Update button when a newer version is live. */
-const APP_VERSION = '2026.10.06.1';
+const APP_VERSION = '2026.11.02.1';
 
 // ---------- storage ----------
 
@@ -973,6 +973,16 @@ loadIndex().then(() => {
   if (location.hash.startsWith('#/r/')) { renderedTab = tab; TABS[tab]?.(); }
   else showTab(tab || 'cook');
 });
+
+// ---------- no zooming ----------
+// iPhone Safari ignores "user-scalable=no" on its own, so block its pinch
+// gesture directly. Double-tap zoom is turned off in the CSS (touch-action).
+for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
+  document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+}
+document.addEventListener('touchmove', (e) => {
+  if (e.touches.length > 1 || (e.scale !== undefined && e.scale !== 1)) e.preventDefault();
+}, { passive: false });
 
 // ---------- updates ----------
 

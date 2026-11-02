@@ -54,7 +54,11 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+  /* Feel like an app: allow scrolling, but no pinch or double-tap zoom. */
+  touch-action: pan-x pan-y;
+}
 
 body {
   margin: 0;

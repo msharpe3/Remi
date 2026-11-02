@@ -4,7 +4,7 @@
 // Recipe library index: network first, cached copy when offline.
 // Recipe files, fonts and photos: cached after the first view.
 
-const VERSION = 'remi-v5';
+const VERSION = 'remi-v6';
 const SHELL = [
   './',
   'index.html',
